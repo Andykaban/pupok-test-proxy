@@ -1,0 +1,19 @@
+{
+	"comment": "",
+	"ignore": "test",
+	"package": [
+		{
+			"checksumSHA1": "dTLySOy0LLPISRdyvfyVYmkynao=",
+			"path": "github.com/armon/go-socks5",
+			"revision": "e75332964ef517daa070d7c38a9466a0d687e0a5",
+			"revisionTime": "2016-09-02T18:42:37Z"
+		},
+		{
+			"checksumSHA1": "GtamqiJoL7PGHsN454AoffBFMa8=",
+			"path": "golang.org/x/net/context",
+			"revision": "5f9ae10d9af5b1c89ae6904293b14b064d4ada23",
+			"revisionTime": "2018-04-20T07:04:21Z"
+		}
+	],
+	"rootPath": "github.com/Andykaban/pupok-test-proxy"
+}
