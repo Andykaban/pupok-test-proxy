@@ -17,9 +17,16 @@ type ProxyConfig struct {
 	Password string `json:"password"`
 }
 
+func Usage() {
+	log.Println("!!! Pupok proxy server !!!")
+	log.Println("Usage: pupok-test-proxy -config 'path to config proxy file'")
+	flag.PrintDefaults()
+}
+
 func main() {
 	var proxyConfig ProxyConfig
-	config := flag.String("config", "config.json", "")
+	config := flag.String("config", "config.json", "Path to configuration file")
+	flag.Usage = Usage
 	flag.Parse()
 
 	raw, err := os.Open(*config)

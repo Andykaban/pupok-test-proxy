@@ -1,2 +1,4 @@
+GOPATH=$(shell pwd)/vendor:$(shell pwd)
+
 build:
-	GOPATH=`pwd` go build
+	@GOPATH=$(GOPATH) go build
