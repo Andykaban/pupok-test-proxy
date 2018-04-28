@@ -5,8 +5,11 @@ Very small and simple SOCKS5 server
 
 ## How to use
 
-1 - Clone this repo
+1 - Install Docker
 
-2 - make build
+2 - Clone this repo
 
-3 - ./pupok-test-proxy
+3 - make
+    or GOOS=linux GOARCH=amd64 make
+
+4 - ./pupok-test-proxy
