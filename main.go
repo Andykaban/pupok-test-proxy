@@ -7,7 +7,9 @@ import (
 	"github.com/armon/go-socks5"
 	"io/ioutil"
 	"log"
+	"net"
 	"os"
+	"sync"
 )
 
 type ProxyConfig struct {
@@ -15,6 +17,15 @@ type ProxyConfig struct {
 	Port     string `json:"port"`
 	Login    string `json:"login"`
 	Password string `json:"password"`
+}
+
+type ConnStat struct {
+	mutex *sync.RWMutex
+	stat map[string]bool
+}
+
+func NewConnStat() *ConnStat {
+	return &ConnStat{mutex:&sync.RWMutex{}, stat:make(map[string]bool)}
 }
 
 func Usage() {
@@ -53,7 +64,19 @@ func main() {
 	}
 	listenAddr := fmt.Sprintf("%s:%s", proxyConfig.Host, proxyConfig.Port)
 	log.Printf("Listen %s...", listenAddr)
-	if err := server.ListenAndServe("tcp", listenAddr); err != nil {
+	listener, err := net.Listen("tcp", listenAddr)
+	if err != nil {
 		log.Fatal(err)
 	}
+	for {
+		connection, err := listener.Accept()
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+		go server.ServeConn(connection)
+	}
+	/*if err := server.ListenAndServe("tcp", listenAddr); err != nil {
+		log.Fatal(err)
+	}*/
 }
