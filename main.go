@@ -14,6 +14,9 @@ import (
 	"github.com/armon/go-socks5"
 )
 
+var proxyConfig ProxyConfig
+var statData *ConnStat
+
 type ProxyConfig struct {
 	Host     string `json:"host"`
 	Port     string `json:"port"`
@@ -52,7 +55,7 @@ func HttpConnStatHandrler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Pahom Service")
 }
 
-func HandleSocks5Connect(server *socks5.Server, statData *ConnStat, connection net.Conn) {
+func HandleSocks5Connect(server *socks5.Server, connection net.Conn) {
 	ipAddr := connection.RemoteAddr().String()
 	statData.UpdateConnStat(ipAddr, true)
 	err := server.ServeConn(connection)
@@ -74,8 +77,7 @@ func Usage() {
 	flag.PrintDefaults()
 }
 
-func main() {
-	var proxyConfig ProxyConfig
+func init() {
 	config := flag.String("config", "config.json", "Path to configuration file")
 	flag.Usage = Usage
 	flag.Parse()
@@ -88,6 +90,10 @@ func main() {
 	byteValue, _ := ioutil.ReadAll(raw)
 	json.Unmarshal(byteValue, &proxyConfig)
 
+	statData = NewConnStat()
+}
+
+func main() {
 	credentials := socks5.StaticCredentials{
 		proxyConfig.Login: proxyConfig.Password,
 	}
@@ -98,7 +104,6 @@ func main() {
 		},
 	}
 
-	statData := NewConnStat()
 	socks5Server, err := socks5.New(conf)
 	go SetupHttpServer()
 	if err != nil {
@@ -116,7 +121,7 @@ func main() {
 			log.Println(err)
 			continue
 		}
-		go HandleSocks5Connect(socks5Server, statData, connection)
+		go HandleSocks5Connect(socks5Server, connection)
 	}
 	/*if err := server.ListenAndServe("tcp", listenAddr); err != nil {
 		log.Fatal(err)
