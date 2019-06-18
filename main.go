@@ -4,12 +4,14 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/armon/go-socks5"
 	"io/ioutil"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"sync"
+
+	"github.com/armon/go-socks5"
 )
 
 type ProxyConfig struct {
@@ -21,11 +23,49 @@ type ProxyConfig struct {
 
 type ConnStat struct {
 	mutex *sync.RWMutex
-	stat map[string]bool
+	stat  map[string]bool
+}
+
+func (c *ConnStat) UpdateConnStat(addr string, status bool) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	c.stat[addr] = status
+}
+
+func (c *ConnStat) GetActiveConnections() []string {
+	activeConnections := make([]string, 0)
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+	for ipAddr, status := range c.stat {
+		if status {
+			activeConnections = append(activeConnections, ipAddr)
+		}
+	}
+	return activeConnections
 }
 
 func NewConnStat() *ConnStat {
-	return &ConnStat{mutex:&sync.RWMutex{}, stat:make(map[string]bool)}
+	return &ConnStat{mutex: &sync.RWMutex{}, stat: make(map[string]bool)}
+}
+
+func HttpConnStatHandrler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "Pahom Service")
+}
+
+func HandleSocks5Connect(server *socks5.Server, statData *ConnStat, connection net.Conn) {
+	ipAddr := connection.RemoteAddr().String()
+	statData.UpdateConnStat(ipAddr, true)
+	err := server.ServeConn(connection)
+	if err != nil {
+		log.Println(err)
+		statData.UpdateConnStat(ipAddr, false)
+	}
+}
+
+func SetupHttpServer() {
+	http.HandleFunc("/", HttpConnStatHandrler)
+	log.Println("Start web server")
+	http.ListenAndServe(":9000", nil)
 }
 
 func Usage() {
@@ -58,7 +98,9 @@ func main() {
 		},
 	}
 
-	server, err := socks5.New(conf)
+	statData := NewConnStat()
+	socks5Server, err := socks5.New(conf)
+	go SetupHttpServer()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -74,7 +116,7 @@ func main() {
 			log.Println(err)
 			continue
 		}
-		go server.ServeConn(connection)
+		go HandleSocks5Connect(socks5Server, statData, connection)
 	}
 	/*if err := server.ListenAndServe("tcp", listenAddr); err != nil {
 		log.Fatal(err)
