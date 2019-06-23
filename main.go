@@ -9,7 +9,9 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/armon/go-socks5"
 )
@@ -40,11 +42,21 @@ func (c *ConnStat) GetActiveConnections() []string {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 	for ipAddr, status := range c.stat {
-		if status {
+		if status == true {
 			activeConnections = append(activeConnections, ipAddr)
 		}
 	}
 	return activeConnections
+}
+
+func (c *ConnStat) DeleteClosedConnections() {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	for ipAddr, status := range c.stat {
+		if status == false {
+			delete(c.stat, ipAddr)
+		}
+	}
 }
 
 func NewConnStat() *ConnStat {
@@ -52,7 +64,9 @@ func NewConnStat() *ConnStat {
 }
 
 func HttpConnStatHandrler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Pahom Service")
+	activeConnections := statData.GetActiveConnections()
+	activeConnectionsStr := strings.Join(activeConnections, "\n")
+	fmt.Fprintf(w, activeConnectionsStr)
 }
 
 func HandleSocks5Connect(server *socks5.Server, connection net.Conn) {
@@ -65,10 +79,17 @@ func HandleSocks5Connect(server *socks5.Server, connection net.Conn) {
 	}
 }
 
-func SetupHttpServer() {
+func RunHttpServer() {
 	http.HandleFunc("/", HttpConnStatHandrler)
 	log.Println("Start web server")
 	http.ListenAndServe(":9000", nil)
+}
+
+func ClosedConnectionsRemover() {
+	for {
+		statData.DeleteClosedConnections()
+		time.Sleep(10 * time.Second)
+	}
 }
 
 func Usage() {
@@ -105,7 +126,8 @@ func main() {
 	}
 
 	socks5Server, err := socks5.New(conf)
-	go SetupHttpServer()
+	go RunHttpServer()
+	go ClosedConnectionsRemover()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -123,7 +145,4 @@ func main() {
 		}
 		go HandleSocks5Connect(socks5Server, connection)
 	}
-	/*if err := server.ListenAndServe("tcp", listenAddr); err != nil {
-		log.Fatal(err)
-	}*/
 }
