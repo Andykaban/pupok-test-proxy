@@ -75,8 +75,8 @@ func HandleSocks5Connect(server *socks5.Server, connection net.Conn) {
 	err := server.ServeConn(connection)
 	if err != nil {
 		log.Println(err)
-		statData.UpdateConnStat(ipAddr, false)
 	}
+	statData.UpdateConnStat(ipAddr, false)
 }
 
 func RunHttpServer() {
