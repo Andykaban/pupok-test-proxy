@@ -19,6 +19,7 @@ import (
 var proxyConfig ProxyConfig
 var statData *ConnStat
 
+//ProxyConfig structure for main configuration
 type ProxyConfig struct {
 	Host     string `json:"host"`
 	Port     string `json:"port"`
@@ -26,21 +27,26 @@ type ProxyConfig struct {
 	Password string `json:"password"`
 }
 
+//ConnStat structure for aggregate clients connections
 type ConnStat struct {
 	mutex *sync.RWMutex
 	stat  map[string]bool
 }
 
+//UpdateConnStat function update client connection info
 func (c *ConnStat) UpdateConnStat(addr string, status bool) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	c.stat[addr] = status
 }
 
+//GetActiveConnections function return active connections slice
 func (c *ConnStat) GetActiveConnections() []string {
 	activeConnections := make([]string, 0)
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
+	//for debugging
+	//log.Panicln(c.stat)
 	for ipAddr, status := range c.stat {
 		if status == true {
 			activeConnections = append(activeConnections, ipAddr)
@@ -49,6 +55,7 @@ func (c *ConnStat) GetActiveConnections() []string {
 	return activeConnections
 }
 
+//DeleteClosedConnections funtion wich delete closed connections data
 func (c *ConnStat) DeleteClosedConnections() {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
@@ -59,32 +66,39 @@ func (c *ConnStat) DeleteClosedConnections() {
 	}
 }
 
+//NewConnStat funtion returm ConnStat struct
 func NewConnStat() *ConnStat {
 	return &ConnStat{mutex: &sync.RWMutex{}, stat: make(map[string]bool)}
 }
 
-func HttpConnStatHandrler(w http.ResponseWriter, r *http.Request) {
+//HTTPConnStatHandler main http handler
+func HTTPConnStatHandler(w http.ResponseWriter, r *http.Request) {
 	activeConnections := statData.GetActiveConnections()
 	activeConnectionsStr := strings.Join(activeConnections, "\n")
 	fmt.Fprintf(w, activeConnectionsStr)
 }
 
+//HandleSocks5Connect SOCK5 client connection handler
 func HandleSocks5Connect(server *socks5.Server, connection net.Conn) {
 	ipAddr := connection.RemoteAddr().String()
 	statData.UpdateConnStat(ipAddr, true)
 	err := server.ServeConn(connection)
 	if err != nil {
+		log.Println("---------------------------------")
 		log.Println(err)
+		log.Println("---------------------------------")
 	}
 	statData.UpdateConnStat(ipAddr, false)
 }
 
-func RunHttpServer() {
-	http.HandleFunc("/", HttpConnStatHandrler)
-	log.Println("Start web server")
+//RunHTTPServer function wich setup and run HTTP server
+func RunHTTPServer() {
+	http.HandleFunc("/", HTTPConnStatHandler)
+	log.Println("Start web server on 9000 port")
 	http.ListenAndServe(":9000", nil)
 }
 
+//ClosedConnectionsRemover function wich remove closed conections by timer
 func ClosedConnectionsRemover() {
 	for {
 		statData.DeleteClosedConnections()
@@ -92,6 +106,7 @@ func ClosedConnectionsRemover() {
 	}
 }
 
+//Usage print usage functon
 func Usage() {
 	log.Println("!!! Pupok proxy server !!!")
 	log.Println("Usage: pupok-test-proxy -config 'path to config proxy file'")
@@ -126,7 +141,7 @@ func main() {
 	}
 
 	socks5Server, err := socks5.New(conf)
-	go RunHttpServer()
+	go RunHTTPServer()
 	go ClosedConnectionsRemover()
 	if err != nil {
 		log.Fatal(err)
