@@ -136,7 +136,7 @@ func main() {
 	conf := &socks5.Config{
 		Logger: log.New(os.Stdout, "[pupok-test-proxy]", log.Ldate|log.Ltime|log.Lshortfile),
 		AuthMethods: []socks5.Authenticator{
-			socks5.UserPassAuthenticator{credentials},
+			socks5.UserPassAuthenticator{Credentials: credentials},
 		},
 	}
 
