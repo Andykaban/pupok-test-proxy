@@ -66,7 +66,7 @@ func (c *ConnStat) DeleteClosedConnections() {
 	}
 }
 
-//NewConnStat funtion returm ConnStat struct
+//NewConnStat function return ConnStat struct
 func NewConnStat() *ConnStat {
 	return &ConnStat{mutex: &sync.RWMutex{}, stat: make(map[string]bool)}
 }
@@ -91,7 +91,7 @@ func HandleSocks5Connect(server *socks5.Server, connection net.Conn) {
 	statData.UpdateConnStat(ipAddr, false)
 }
 
-//RunHTTPServer function wich setup and run HTTP server
+//RunHTTPServer function which setup and run HTTP server
 func RunHTTPServer() {
 	http.HandleFunc("/", HTTPConnStatHandler)
 	log.Println("Start web server on 9000 port")
@@ -106,7 +106,7 @@ func ClosedConnectionsRemover() {
 	}
 }
 
-//Usage print usage functon
+//Usage print usage function
 func Usage() {
 	log.Println("!!! Pupok proxy server !!!")
 	log.Println("Usage: pupok-test-proxy -config 'path to config proxy file'")
