@@ -21,10 +21,11 @@ var statData *ConnStat
 
 //ProxyConfig structure for main configuration
 type ProxyConfig struct {
-	Host     string `json:"host"`
-	Port     string `json:"port"`
-	Login    string `json:"login"`
-	Password string `json:"password"`
+	Host            string `json:"host"`
+	Port            string `json:"port"`
+	Login           string `json:"login"`
+	Password        string `json:"password"`
+	DeadlineTimeOut int    `json:"deadline_timeout,omitempty"`
 }
 
 //ConnStat structure for aggregate clients connections
@@ -46,7 +47,7 @@ func (c *ConnStat) GetActiveConnections() []string {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 	//for debugging
-	//log.Panicln(c.stat)
+	//log.Println(c.stat)
 	for ipAddr, status := range c.stat {
 		if status == true {
 			activeConnections = append(activeConnections, ipAddr)
@@ -79,9 +80,13 @@ func HTTPConnStatHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 //HandleSocks5Connect SOCK5 client connection handler
-func HandleSocks5Connect(server *socks5.Server, connection net.Conn) {
+func HandleSocks5Connect(server *socks5.Server, connection net.Conn, deadlineInSec int) {
 	ipAddr := connection.RemoteAddr().String()
 	statData.UpdateConnStat(ipAddr, true)
+	if deadlineInSec != 0 {
+		deadLineDuration := time.Duration(deadlineInSec) * time.Second
+		connection.SetDeadline(time.Now().Add(deadLineDuration))
+	}
 	err := server.ServeConn(connection)
 	if err != nil {
 		log.Println("---------------------------------")
@@ -133,6 +138,8 @@ func main() {
 	credentials := socks5.StaticCredentials{
 		proxyConfig.Login: proxyConfig.Password,
 	}
+	deadlineInSeconds := proxyConfig.DeadlineTimeOut
+
 	conf := &socks5.Config{
 		Logger: log.New(os.Stdout, "[pupok-test-proxy]", log.Ldate|log.Ltime|log.Lshortfile),
 		AuthMethods: []socks5.Authenticator{
@@ -158,6 +165,6 @@ func main() {
 			log.Println(err)
 			continue
 		}
-		go HandleSocks5Connect(socks5Server, connection)
+		go HandleSocks5Connect(socks5Server, connection, deadlineInSeconds)
 	}
 }
