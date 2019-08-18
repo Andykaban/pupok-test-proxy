@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"html/template"
 	"io/ioutil"
 	"log"
 	"net"
@@ -15,6 +16,35 @@ import (
 
 	"github.com/armon/go-socks5"
 )
+
+var templateIndex = `
+{{ define "Index" }}
+<!DOCTYPE html>
+<html lang="en-US">
+    <head>
+        <title>Pupok proxy connection statistics</title>
+        <meta charset="UTF-8" />
+    </head>
+    <body>
+        <h1>List of active connections:</h1>
+
+    <table border="1">
+      <tr>
+        <td>ip address</td>
+      </tr>
+    {{ range . }}
+      <tr>
+        <td>{{ .ipaddr }}</td>
+      </tr>
+    {{ end }}
+    </table>
+
+    </body>
+</html>
+{{ end }}
+`
+
+var tmpl = template.Must(template.New("index").Parse(templateIndex))
 
 var proxyConfig ProxyConfig
 var statData *ConnStat
