@@ -10,7 +10,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
@@ -32,13 +31,12 @@ var templateIndex = `
       <tr>
         <td>ip address</td>
       </tr>
-    {{ range . }}
-      <tr>
-        <td>{{ .ipaddr }}</td>
+    {{ range .StatFields }}
+	  <tr>
+        <td><a href="/whois">{{.}}</a></td>
       </tr>
     {{ end }}
     </table>
-
     </body>
 </html>
 {{ end }}
@@ -48,6 +46,11 @@ var tmpl = template.Must(template.New("index").Parse(templateIndex))
 
 var proxyConfig ProxyConfig
 var statData *ConnStat
+
+//StatPage structure for render html page
+type StatPage struct {
+	StatFields []string
+}
 
 //ProxyConfig structure for main configuration
 type ProxyConfig struct {
@@ -102,11 +105,16 @@ func NewConnStat() *ConnStat {
 	return &ConnStat{mutex: &sync.RWMutex{}, stat: make(map[string]bool)}
 }
 
+//WHOISHanler handler for whois requests
+func WHOISHanler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "whois wrapper")
+}
+
 //HTTPConnStatHandler main http handler
 func HTTPConnStatHandler(w http.ResponseWriter, r *http.Request) {
 	activeConnections := statData.GetActiveConnections()
-	activeConnectionsStr := strings.Join(activeConnections, "\n")
-	fmt.Fprintf(w, activeConnectionsStr)
+	statPage := StatPage{StatFields: activeConnections}
+	tmpl.ExecuteTemplate(w, "Index", statPage)
 }
 
 //HandleSocks5Connect SOCK5 client connection handler
@@ -129,6 +137,7 @@ func HandleSocks5Connect(server *socks5.Server, connection net.Conn, deadlineInS
 //RunHTTPServer function which setup and run HTTP server
 func RunHTTPServer() {
 	http.HandleFunc("/", HTTPConnStatHandler)
+	http.HandleFunc("/whois", WHOISHanler)
 	log.Println("Start web server on 9000 port")
 	http.ListenAndServe(":9000", nil)
 }
