@@ -33,7 +33,7 @@ var templateIndex = `
       </tr>
     {{ range .StatFields }}
 	  <tr>
-        <td><a href="/whois">{{.}}</a></td>
+        <td><a href="/whois?ipaddr={{.}}">{{.}}</a></td>
       </tr>
     {{ end }}
     </table>
@@ -107,7 +107,31 @@ func NewConnStat() *ConnStat {
 
 //WHOISHanler handler for whois requests
 func WHOISHanler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "whois wrapper")
+	queryRaw := r.URL.Query()
+	val := queryRaw.Get("ipaddr")
+	if len(val) == 0 {
+		http.Error(w, "Missing whois request input parameter", http.StatusInternalServerError)
+		return
+	}
+	clientIPAddr := net.ParseIP(val)
+	if clientIPAddr.To4() == nil {
+		http.Error(w, "Client IP adress is not valid", http.StatusInternalServerError)
+		return
+	}
+	whoisConn, err := net.DialTimeout("tcp", "whois.ripe.net:43", time.Second*30)
+	defer whoisConn.Close()
+	if err != nil {
+		http.Error(w, "Could not connet to whois server", http.StatusInternalServerError)
+		return
+	}
+	whoisConn.Write([]byte(clientIPAddr.String() + "\r\n"))
+	whoisConn.SetReadDeadline(time.Now().Add(time.Second * 30))
+	dataRaw, err := ioutil.ReadAll(whoisConn)
+	if err != nil {
+		http.Error(w, "whois server return error", http.StatusInternalServerError)
+		return
+	}
+	fmt.Fprintf(w, string(dataRaw))
 }
 
 //HTTPConnStatHandler main http handler
