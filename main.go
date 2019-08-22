@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"html"
 	"html/template"
 	"io/ioutil"
 	"log"
@@ -54,11 +55,12 @@ type StatPage struct {
 
 //ProxyConfig structure for main configuration
 type ProxyConfig struct {
-	Host            string `json:"host"`
-	Port            string `json:"port"`
-	Login           string `json:"login"`
-	Password        string `json:"password"`
-	DeadlineTimeOut int    `json:"deadline_timeout,omitempty"`
+	Host              string `json:"host"`
+	Port              string `json:"port"`
+	Login             string `json:"login"`
+	Password          string `json:"password"`
+	DeadlineTimeOut   int    `json:"deadline_timeout,omitempty"`
+	WhoisServerAdress string `json:"whois_server,omitempty"`
 }
 
 //ConnStat structure for aggregate clients connections
@@ -113,25 +115,36 @@ func WHOISHanler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Missing whois request input parameter", http.StatusInternalServerError)
 		return
 	}
-	clientIPAddr := net.ParseIP(val)
+	host, _, err := net.SplitHostPort(val)
+	if err != nil {
+		host = val
+	}
+	clientIPAddr := net.ParseIP(host)
 	if clientIPAddr.To4() == nil {
 		http.Error(w, "Client IP adress is not valid", http.StatusInternalServerError)
 		return
 	}
-	whoisConn, err := net.DialTimeout("tcp", "whois.ripe.net:43", time.Second*30)
+	if proxyConfig.WhoisServerAdress == "" {
+		fmt.Fprintf(w, "whois url not set nothing to do")
+		return
+	}
+	whoisConn, err := net.DialTimeout("tcp", proxyConfig.WhoisServerAdress, time.Second*30)
 	defer whoisConn.Close()
 	if err != nil {
-		http.Error(w, "Could not connet to whois server", http.StatusInternalServerError)
+		errMsg := fmt.Sprintf("Could not connet to whois server. Error message - %s", err.Error())
+		http.Error(w, errMsg, http.StatusInternalServerError)
 		return
 	}
 	whoisConn.Write([]byte(clientIPAddr.String() + "\r\n"))
 	whoisConn.SetReadDeadline(time.Now().Add(time.Second * 30))
 	dataRaw, err := ioutil.ReadAll(whoisConn)
 	if err != nil {
-		http.Error(w, "whois server return error", http.StatusInternalServerError)
+		errMsg := fmt.Sprintf("whois server return error - %s", err.Error())
+		http.Error(w, errMsg, http.StatusInternalServerError)
 		return
 	}
-	fmt.Fprintf(w, string(dataRaw))
+	dataEscaped := html.EscapeString(string(dataRaw))
+	fmt.Fprintf(w, dataEscaped)
 }
 
 //HTTPConnStatHandler main http handler
